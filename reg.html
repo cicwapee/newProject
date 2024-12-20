@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Show Match Tournament</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: radial-gradient(circle at top, #0d1b2a, #1b263b, #415a77);
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .card {
+            background-color: rgba(27, 38, 59, 0.85);
+            border: 1px solid #415a77;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .btn-primary {
+            background-color: #778da9;
+            border-color: #778da9;
+        }
+        .btn-primary:hover {
+            background-color: #506d8b;
+            border-color: #506d8b;
+        }
+        .discord-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: #1b263b;
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        .discord-link a {
+            color: #00acee;
+            font-size: 1.2rem;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="text-center">
+            <h1>Show Match Tournament</h1>
+            <p>Register to participate in exciting matches of CS2 or Dota 2!</p>
+        </header>
+
+        <!-- Steam Login Button -->
+        <section class="card mt-4">
+            <div class="card-body text-center">
+                <h2 class="card-title">Player Registration</h2>
+                <p>Sign in with Steam to register:</p>
+                <a href="/auth/steam">
+                    <img src="https://steamcommunity-a.akamaihd.net/public/images/signinthroughsteam/sits_large_noborder.png" alt="Sign in through Steam">
+                </a>
+            </div>
+        </section>
+
+        <!-- Participant List -->
+        <section class="card mt-4">
+            <div class="card-body">
+                <h2 class="card-title text-center">Registered Participants</h2>
+                <ul id="participant-list" class="list-group">
+                    <li class="list-group-item text-center">No participants yet.</li>
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <div class="discord-link">
+        <a href="https://discord.gg/3K4PfBMyB6" target="_blank">Join Discord</a>
+    </div>
+
+    <script>
+        const express = require('express');
+const session = require('express-session');
+const passport = require('passport');
+const SteamStrategy = require('passport-steam').Strategy;
+
+const app = express();
+
+// Учасники
+let participants = [];
+
+// Налаштування сесії
+app.use(session({
+    secret: 'your-secret-key',
+    resave: false,
+    saveUninitialized: true
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Налаштування Steam Strategy
+passport.use(new SteamStrategy({
+    returnURL: 'http://localhost:3000/auth/steam/return',
+    realm: 'http://localhost:3000/',
+    apiKey: 'YOUR_STEAM_API_KEY' // Вставте ваш Steam API Key
+}, (identifier, profile, done) => {
+    profile.identifier = identifier;
+    return done(null, profile);
+}));
+
+passport.serializeUser((user, done) => {
+    done(null, user);
+});
+
+passport.deserializeUser((obj, done) => {
+    done(null, obj);
+});
+
+// Шлях для автентифікації через Steam
+app.get('/auth/steam',
+    passport.authenticate('steam'),
+    (req, res) => {
+        // Редирект після входу
+    }
+);
+
+app.get('/auth/steam/return',
+    passport.authenticate('steam', { failureRedirect: '/' }),
+    (req, res) => {
+        const existingParticipant = participants.find(p => p.steamId === req.user.id);
+
+        if (!existingParticipant) {
+            participants.push({
+                nickname: req.user.displayName,
+                steamId: req.user.id
+            });
+        }
+
+        res.redirect('/');
+    }
+);
+
+// API для отримання учасників
+app.get('/participants', (req, res) => {
+    res.json(participants);
+});
+
+// Сервер статичних файлів
+app.use(express.static('public'));
+
+// Запуск сервера
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
+
+        // Fetch participant list on page load
+        window.onload = async () => {
+            const response = await fetch('/participants');
+            const participants = await response.json();
+
+            const participantList = document.getElementById('participant-list');
+            participantList.innerHTML = '';
+
+            if (participants.length === 0) {
+                participantList.innerHTML = '<li class="list-group-item text-center">No participants yet.</li>';
+            } else {
+                participants.forEach(participant => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item text-center';
+                    li.textContent = `${participant.nickname} (${participant.steamId})`;
+                    participantList.appendChild(li);
+                });
+            }
+        };
+    </script>
+</body>
+</html>
